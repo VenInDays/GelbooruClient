@@ -12,15 +12,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 
-/**
- * Image downloader using OkHttp with progress tracking and Scoped Storage support.
- */
 class ImageDownloader(private val context: Context) {
 
     private val client = OkHttpClient.Builder()
@@ -31,10 +28,6 @@ class ImageDownloader(private val context: Context) {
         .followSslRedirects(true)
         .build()
 
-    /**
-     * Download an image and save it using MediaStore (Scoped Storage).
-     * Returns a Flow of DownloadTask with progress updates.
-     */
     fun downloadImage(
         imageUrl: String,
         postId: Int,
@@ -65,7 +58,8 @@ class ImageDownloader(private val context: Context) {
                 return@flow
             }
 
-            val body = response.body ?: run {
+            val body = response.body
+            if (body == null) {
                 emit(task.copy(status = DownloadStatus.FAILED))
                 return@flow
             }
@@ -74,7 +68,7 @@ class ImageDownloader(private val context: Context) {
             val inputStream = body.byteStream()
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                saveWithMediaStore(inputStream, fileName, mimeType, subfolder, totalBytes) { bytes ->
+                saveWithMediaStore(inputStream, fileName, mimeType, subfolder) { bytes ->
                     val progress = if (totalBytes > 0) bytes.toFloat() / totalBytes else 0f
                     emit(task.copy(
                         status = DownloadStatus.DOWNLOADING,
@@ -84,7 +78,8 @@ class ImageDownloader(private val context: Context) {
                     ))
                 }
             } else {
-                saveLegacy(inputStream, fileName, subfolder, totalBytes) { bytes ->
+                @Suppress("DEPRECATION")
+                saveLegacy(inputStream, fileName, subfolder) { bytes ->
                     val progress = if (totalBytes > 0) bytes.toFloat() / totalBytes else 0f
                     emit(task.copy(
                         status = DownloadStatus.DOWNLOADING,
@@ -102,17 +97,13 @@ class ImageDownloader(private val context: Context) {
                 bytesDownloaded = totalBytes,
                 totalBytes = totalBytes
             ))
-
         } catch (e: Exception) {
             emit(task.copy(status = DownloadStatus.FAILED))
         }
     }.flowOn(Dispatchers.IO)
 
-    /**
-     * Download to a temporary cache file for preview/display.
-     */
-    suspend fun downloadToCache(imageUrl: String): File? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        return@withContext try {
+    suspend fun downloadToCache(imageUrl: String): File? = withContext(Dispatchers.IO) {
+        try {
             val request = Request.Builder()
                 .url(imageUrl)
                 .header("User-Agent", USER_AGENT)
@@ -120,38 +111,29 @@ class ImageDownloader(private val context: Context) {
                 .build()
 
             val response = client.newCall(request).execute()
-            if (!response.isSuccessful) return null
-
-            val body = response.body ?: return null
-            val extension = getExtensionFromUrl(imageUrl)
-            val cacheFile = File(context.cacheDir, "img_${System.currentTimeMillis()}.$extension")
-
-            cacheFile.outputStream().use { output ->
-                body.byteStream().copyTo(output)
+            if (!response.isSuccessful) null
+            else {
+                val body = response.body
+                if (body == null) null
+                else {
+                    val extension = getExtensionFromUrl(imageUrl)
+                    val cacheFile = File(context.cacheDir, "img_${System.currentTimeMillis()}.$extension")
+                    cacheFile.outputStream().use { output ->
+                        body.byteStream().copyTo(output)
+                    }
+                    cacheFile
+                }
             }
-
-            cacheFile
         } catch (e: Exception) {
             null
         }
     }
-
-    /**
-     * Cancel a specific download by URL.
-     */
-    fun cancelDownload(imageUrl: String) {
-        // OkHttp handles cancellation via Call.cancel()
-        // In a real implementation, track active calls
-    }
-
-    // --- Private helpers ---
 
     @Suppress("DEPRECATION")
     private fun saveLegacy(
         inputStream: java.io.InputStream,
         fileName: String,
         subfolder: String,
-        totalBytes: Long,
         onProgress: (Long) -> Unit
     ) {
         val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
@@ -171,7 +153,6 @@ class ImageDownloader(private val context: Context) {
             }
         }
 
-        // Notify MediaScanner
         android.media.MediaScannerConnection.scanFile(
             context, arrayOf(outFile.absolutePath), null, null
         )
@@ -182,7 +163,6 @@ class ImageDownloader(private val context: Context) {
         fileName: String,
         mimeType: String,
         subfolder: String,
-        totalBytes: Long,
         onProgress: (Long) -> Unit
     ) {
         val contentValues = ContentValues().apply {
@@ -198,12 +178,13 @@ class ImageDownloader(private val context: Context) {
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
             ?: throw IllegalStateException("Failed to create MediaStore entry")
 
-        var outputStream: OutputStream? = null
+        var outputStream: java.io.OutputStream? = null
         var bytesCopied = 0L
         val buffer = ByteArray(8192)
 
         try {
-            outputStream = resolver.openOutputStream(uri) ?: throw IllegalStateException("Cannot open output stream")
+            outputStream = resolver.openOutputStream(uri)
+                ?: throw IllegalStateException("Cannot open output stream")
 
             var read: Int
             while (inputStream.read(buffer).also { read = it } != -1) {

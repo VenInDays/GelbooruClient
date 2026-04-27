@@ -9,16 +9,30 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -27,11 +41,8 @@ import androidx.compose.ui.unit.dp
 import com.gelbooru.client.ui.theme.TactileTheme
 import kotlin.math.roundToInt
 
-/**
- * Floating Command Center — the main navigation hub.
- * A large tactile circle centered at the bottom, partially overlapping the content area by 20%.
- * Expands into a radial menu on tap.
- */
+private val MenuCardShape = RoundedCornerShape(12.dp)
+
 @Composable
 fun FloatingCommandCenter(
     onNavigateSearch: () -> Unit = {},
@@ -50,7 +61,6 @@ fun FloatingCommandCenter(
         label = "fab_elevation"
     )
 
-    // The FAB overlaps content by 20% of its size
     val overlapOffset = (fabSizePx * 0.20f).roundToInt()
 
     Box(
@@ -59,34 +69,29 @@ fun FloatingCommandCenter(
             .padding(bottom = 16.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Expanded radial menu
         AnimatedVisibility(
             visible = isExpanded,
             enter = fadeIn() + scaleIn(initialScale = 0.5f),
             exit = fadeOut() + scaleOut(targetScale = 0.5f),
             modifier = Modifier.offset { IntOffset(x = 0, y = -(fabSizePx + overlapOffset).roundToInt()) }
         ) {
-            RadialMenuContent(
-                onSearchClick = {
-                    isExpanded = false
-                    onNavigateSearch()
-                },
-                onGalleryClick = {
-                    isExpanded = false
-                    onNavigateGallery()
-                },
-                onSettingsClick = {
-                    isExpanded = false
-                    onNavigateSettings()
-                },
-                onDownloadsClick = {
-                    isExpanded = false
-                    onNavigateDownloads()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                MenuButton(label = "Search", onClick = { isExpanded = false; onNavigateSearch() })
+                MenuButton(label = "Gallery", onClick = { isExpanded = false; onNavigateGallery() })
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MenuButton(label = "Downloads", onClick = { isExpanded = false; onNavigateDownloads() }, modifier = Modifier.weight(1f))
+                    MenuButton(label = "Settings", onClick = { isExpanded = false; onNavigateSettings() }, modifier = Modifier.weight(1f))
                 }
-            )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
 
-        // Dim overlay when expanded
         AnimatedVisibility(
             visible = isExpanded,
             enter = fadeIn(),
@@ -104,7 +109,6 @@ fun FloatingCommandCenter(
             )
         }
 
-        // Main FAB button
         Box(
             modifier = Modifier
                 .offset { IntOffset(x = 0, y = -overlapOffset) }
@@ -131,7 +135,6 @@ fun FloatingCommandCenter(
                 },
             contentAlignment = Alignment.Center
         ) {
-            // Tactile inner circle with hamburger icon
             Canvas(modifier = Modifier.size(44.dp)) {
                 val innerRadius = size.minDimension / 2 - 2.dp.toPx()
                 drawCircle(
@@ -145,52 +148,20 @@ fun FloatingCommandCenter(
                 val cx = size.width / 2
                 val cy = size.height / 2
                 val gap = 5.dp.toPx()
-
-                drawLine(iconColor, Offset(cx - lineLength/2, cy - gap), Offset(cx + lineLength/2, cy - gap), strokeWidth)
-                drawLine(iconColor, Offset(cx - lineLength/2, cy), Offset(cx + lineLength/2, cy), strokeWidth)
-                drawLine(iconColor, Offset(cx - lineLength/2, cy + gap), Offset(cx + lineLength/2, cy + gap), strokeWidth)
+                drawLine(iconColor, Offset(cx - lineLength / 2, cy - gap), Offset(cx + lineLength / 2, cy - gap), strokeWidth)
+                drawLine(iconColor, Offset(cx - lineLength / 2, cy), Offset(cx + lineLength / 2, cy), strokeWidth)
+                drawLine(iconColor, Offset(cx - lineLength / 2, cy + gap), Offset(cx + lineLength / 2, cy + gap), strokeWidth)
             }
         }
     }
 }
 
-/**
- * Radial menu that appears when the FAB is expanded.
- */
 @Composable
-private fun RadialMenuContent(
-    onSearchClick: () -> Unit,
-    onGalleryClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    onDownloadsClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        TactileMenuButton(label = "Search", onClick = onSearchClick)
-        TactileMenuButton(label = "Gallery", onClick = onGalleryClick)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TactileMenuButton(label = "Downloads", onClick = onDownloadsClick, modifier = Modifier.weight(1f))
-            TactileMenuButton(label = "Settings", onClick = onSettingsClick, modifier = Modifier.weight(1f))
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun TactileMenuButton(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun MenuButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .shadow(6.dp, TactileSmallCardShape, TactileTheme.colors.surfaceShadow)
-            .clip(TactileSmallCardShape)
+            .shadow(6.dp, MenuCardShape, TactileTheme.colors.surfaceShadow)
+            .clip(MenuCardShape)
             .background(TactileTheme.colors.surfaceElevated)
             .pointerInput(Unit) { detectTapGestures { onClick() } }
             .padding(horizontal = 24.dp, vertical = 14.dp),
