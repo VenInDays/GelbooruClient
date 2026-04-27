@@ -207,19 +207,21 @@ fun TactileLoadingIndicator(modifier: Modifier = Modifier) {
     Canvas(
         modifier = modifier.size(32.dp)
     ) {
+        val trackColor = TactileTheme.colors.progressTrack
+        val fillColor = TactileTheme.colors.progressFill
         val strokeWidth = 2.5.dp.toPx()
         val radius = (size.minDimension - strokeWidth) / 2
 
         // Track
         drawCircle(
-            color = TactileTheme.colors.progressTrack,
+            color = trackColor,
             radius = radius,
             style = Stroke(width = strokeWidth)
         )
 
         // Progress arc
         drawArc(
-            color = TactileTheme.colors.progressFill,
+            color = fillColor,
             startAngle = -90f,
             sweepAngle = 360f * progress,
             useCenter = false,

@@ -39,7 +39,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.pointer.detectTapGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import com.gelbooru.client.ui.theme.TactileTheme
 
 private val ToolbarShape = RoundedCornerShape(20.dp)
 private val SmallCardShape = RoundedCornerShape(12.dp)
@@ -97,16 +98,16 @@ fun FloatingToolbar(
                     .clickable { onMenuClick() },
                 contentAlignment = Alignment.Center
             ) {
+                val lineColor = TactileTheme.colors.textPrimary
                 Canvas(modifier = Modifier.size(20.dp)) {
-                    val color = TactileTheme.colors.textPrimary
                     val strokeWidth = 1.8.dp.toPx()
                     val lineLength = 16.dp.toPx()
                     val cx = size.width / 2
                     val cy = size.height / 2
                     val gap = 4.5.dp.toPx()
-                    drawLine(color, Offset(cx - lineLength / 2, cy - gap), Offset(cx + lineLength / 2, cy - gap), strokeWidth)
-                    drawLine(color, Offset(cx - lineLength / 2, cy), Offset(cx + lineLength / 2, cy), strokeWidth)
-                    drawLine(color, Offset(cx - lineLength / 2, cy + gap), Offset(cx + lineLength / 2, cy + gap), strokeWidth)
+                    drawLine(lineColor, Offset(cx - lineLength / 2, cy - gap), Offset(cx + lineLength / 2, cy - gap), strokeWidth)
+                    drawLine(lineColor, Offset(cx - lineLength / 2, cy), Offset(cx + lineLength / 2, cy), strokeWidth)
+                    drawLine(lineColor, Offset(cx - lineLength / 2, cy + gap), Offset(cx + lineLength / 2, cy + gap), strokeWidth)
                 }
             }
 

@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 
 class ImageDownloader(private val context: Context) {
@@ -67,34 +68,12 @@ class ImageDownloader(private val context: Context) {
             val totalBytes = body.contentLength()
             val inputStream = body.byteStream()
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                saveWithMediaStore(inputStream, fileName, mimeType, subfolder) { bytes ->
-                    val progress = if (totalBytes > 0) bytes.toFloat() / totalBytes else 0f
-                    emit(task.copy(
-                        status = DownloadStatus.DOWNLOADING,
-                        progress = progress,
-                        bytesDownloaded = bytes,
-                        totalBytes = totalBytes
-                    ))
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                saveLegacy(inputStream, fileName, subfolder) { bytes ->
-                    val progress = if (totalBytes > 0) bytes.toFloat() / totalBytes else 0f
-                    emit(task.copy(
-                        status = DownloadStatus.DOWNLOADING,
-                        progress = progress,
-                        bytesDownloaded = bytes,
-                        totalBytes = totalBytes
-                    ))
-                }
-            }
+            val bytesWritten = writeToFile(inputStream, fileName, mimeType, subfolder, totalBytes)
 
-            inputStream.close()
             emit(task.copy(
                 status = DownloadStatus.COMPLETED,
                 progress = 1f,
-                bytesDownloaded = totalBytes,
+                bytesDownloaded = bytesWritten,
                 totalBytes = totalBytes
             ))
         } catch (e: Exception) {
@@ -111,95 +90,83 @@ class ImageDownloader(private val context: Context) {
                 .build()
 
             val response = client.newCall(request).execute()
-            if (!response.isSuccessful) null
-            else {
-                val body = response.body
-                if (body == null) null
-                else {
-                    val extension = getExtensionFromUrl(imageUrl)
-                    val cacheFile = File(context.cacheDir, "img_${System.currentTimeMillis()}.$extension")
-                    cacheFile.outputStream().use { output ->
-                        body.byteStream().copyTo(output)
-                    }
-                    cacheFile
-                }
+            if (!response.isSuccessful || response.body == null) return@withContext null
+
+            val extension = getExtensionFromUrl(imageUrl)
+            val cacheFile = File(context.cacheDir, "img_${System.currentTimeMillis()}.$extension")
+            cacheFile.outputStream().use { output ->
+                response.body!!.byteStream().copyTo(output)
             }
+            cacheFile
         } catch (e: Exception) {
             null
         }
     }
 
+    private fun writeToFile(
+        inputStream: java.io.InputStream,
+        fileName: String,
+        mimeType: String,
+        subfolder: String,
+        totalBytes: Long
+    ): Long {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            writeToMediaStore(inputStream, fileName, mimeType, subfolder, totalBytes)
+        } else {
+            @Suppress("DEPRECATION")
+            writeToExternalStorage(inputStream, fileName, subfolder, totalBytes)
+        }
+    }
+
     @Suppress("DEPRECATION")
-    private fun saveLegacy(
+    private fun writeToExternalStorage(
         inputStream: java.io.InputStream,
         fileName: String,
         subfolder: String,
-        onProgress: (Long) -> Unit
-    ) {
+        totalBytes: Long
+    ): Long {
         val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
         val destDir = File(picturesDir, subfolder)
         if (!destDir.exists()) destDir.mkdirs()
 
         val outFile = File(destDir, fileName)
-        var bytesCopied = 0L
-        val buffer = ByteArray(8192)
-
-        outFile.outputStream().use { output ->
-            var read: Int
-            while (inputStream.read(buffer).also { read = it } != -1) {
-                output.write(buffer, 0, read)
-                bytesCopied += read
-                onProgress(bytesCopied)
-            }
+        return outFile.outputStream().use { output ->
+            inputStream.copyTo(output)
+        }.also {
+            android.media.MediaScannerConnection.scanFile(
+                context, arrayOf(outFile.absolutePath), null, null
+            )
         }
-
-        android.media.MediaScannerConnection.scanFile(
-            context, arrayOf(outFile.absolutePath), null, null
-        )
     }
 
-    private fun saveWithMediaStore(
+    private fun writeToMediaStore(
         inputStream: java.io.InputStream,
         fileName: String,
         mimeType: String,
         subfolder: String,
-        onProgress: (Long) -> Unit
-    ) {
+        totalBytes: Long
+    ): Long {
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/$subfolder")
-                put(MediaStore.MediaColumns.IS_PENDING, 1)
-            }
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/$subfolder")
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
 
         val resolver = context.contentResolver
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
             ?: throw IllegalStateException("Failed to create MediaStore entry")
 
-        var outputStream: java.io.OutputStream? = null
-        var bytesCopied = 0L
-        val buffer = ByteArray(8192)
-
-        try {
+        var outputStream: OutputStream? = null
+        return try {
             outputStream = resolver.openOutputStream(uri)
                 ?: throw IllegalStateException("Cannot open output stream")
-
-            var read: Int
-            while (inputStream.read(buffer).also { read = it } != -1) {
-                outputStream.write(buffer, 0, read)
-                bytesCopied += read
-                onProgress(bytesCopied)
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                contentValues.clear()
-                contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                resolver.update(uri, contentValues, null, null)
-            }
+            inputStream.copyTo(outputStream)
         } finally {
             outputStream?.close()
+            contentValues.clear()
+            contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(uri, contentValues, null, null)
         }
     }
 

@@ -135,14 +135,15 @@ fun FloatingCommandCenter(
                 },
             contentAlignment = Alignment.Center
         ) {
+            val fgColor = TactileTheme.colors.fabForeground
             Canvas(modifier = Modifier.size(44.dp)) {
                 val innerRadius = size.minDimension / 2 - 2.dp.toPx()
                 drawCircle(
-                    color = TactileTheme.colors.fabForeground.copy(alpha = 0.15f),
+                    color = fgColor.copy(alpha = 0.15f),
                     radius = innerRadius,
                     style = Stroke(width = 1.5.dp.toPx())
                 )
-                val iconColor = TactileTheme.colors.fabForeground
+                val iconColor = fgColor
                 val lineLength = 16.dp.toPx()
                 val strokeWidth = 2.dp.toPx()
                 val cx = size.width / 2
@@ -160,7 +161,7 @@ fun FloatingCommandCenter(
 private fun MenuButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .shadow(6.dp, MenuCardShape, TactileTheme.colors.surfaceShadow)
+            .shadow(6.dp, MenuCardShape, ambientColor = TactileTheme.colors.surfaceShadow, spotColor = TactileTheme.colors.surfaceShadow)
             .clip(MenuCardShape)
             .background(TactileTheme.colors.surfaceElevated)
             .pointerInput(Unit) { detectTapGestures { onClick() } }
