@@ -1,0 +1,106 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Create local.properties (keystore config)
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Sign APK with debug signing config
+        run: |
+          # The release build uses debug signing config from build.gradle.kts
+          ls -la app/build/outputs/apk/
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION_NAME=$(grep "versionName" app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          BUILD_NUMBER=${{ github.run_number }}
+          echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "tag_name=v${VERSION_NAME}-${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Rename APKs
+        run: |
+          mv app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/debug/GelbooruClient-${{ steps.version.outputs.tag_name }}-debug.apk
+          mv app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/apk/release/GelbooruClient-${{ steps.version.outputs.tag_name }}-release.apk
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          name: "Release ${{ steps.version.outputs.tag_name }}"
+          body: |
+            ## Gelbooru Client ${{ steps.version.outputs.tag_name }}
+
+            ### Features
+            - Tactile Minimalism UI with Floating Command Center
+            - WebView-based HTML scraper for Gelbooru
+            - Image download with progress notifications
+            - NSFW content toggle
+            - High-resolution image support
+            - Local image caching
+            - Scoped Storage support
+
+            ### APK Downloads
+            - **Debug APK**: For testing and development
+            - **Release APK**: Optimized production build
+
+            Built from commit ${{ github.sha }}
+          files: |
+            app/build/outputs/apk/debug/GelbooruClient-${{ steps.version.outputs.tag_name }}-debug.apk
+            app/build/outputs/apk/release/GelbooruClient-${{ steps.version.outputs.tag_name }}-release.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-artifacts
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          retention-days: 30
