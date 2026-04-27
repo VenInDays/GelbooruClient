@@ -128,27 +128,26 @@ class GelbooruScraper(private val context: Context) {
                     // Small delay to let JS render
                     view.postDelayed({
                         try {
-                            val html = view.evaluateJavascript(
-                                "document.documentElement.outerHTML",
-                                null
-                            )
-                            // evaluateJavascript wraps result in quotes
-                            val cleanHtml = html?.trim('"')?.replace("\\u003C", "<")
-                                ?.replace("\\u003E", ">")
-                                ?.replace("\\\"", "\"")
-                                ?.replace("\\n", "\n")
-                                ?: ""
+                            view.evaluateJavascript(
+                                "document.documentElement.outerHTML"
+                            ) { html ->
+                                // evaluateJavascript wraps result in quotes
+                                val cleanHtml = html?.trim('"')?.replace("\\u003C", "<")
+                                    ?.replace("\\u003E", ">")
+                                    ?.replace("\\\"", "\"")
+                                    ?.replace("\\n", "\n")
+                                    ?: ""
 
-                            if (cleanHtml.isNotBlank()) {
-                                continuation.resume(cleanHtml)
-                            } else {
-                                continuation.resumeWithException(
-                                    IllegalStateException("Empty HTML from WebView")
-                                )
+                                if (cleanHtml.isNotBlank()) {
+                                    continuation.resume(cleanHtml)
+                                } else {
+                                    continuation.resumeWithException(
+                                        IllegalStateException("Empty HTML from WebView")
+                                    )
+                                }
                             }
                         } catch (e: Exception) {
                             continuation.resumeWithException(e)
-                        } finally {
                             view.destroy()
                         }
                     }, 500)

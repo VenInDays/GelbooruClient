@@ -111,8 +111,8 @@ class ImageDownloader(private val context: Context) {
     /**
      * Download to a temporary cache file for preview/display.
      */
-    suspend fun downloadToCache(imageUrl: String): File? {
-        return try {
+    suspend fun downloadToCache(imageUrl: String): File? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        return@withContext try {
             val request = Request.Builder()
                 .url(imageUrl)
                 .header("User-Agent", USER_AGENT)

@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -41,9 +40,7 @@ fun FloatingCommandCenter(
     onNavigateDownloads: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
     val fabSize = 64.dp
     val fabSizePx = with(density) { fabSize.toPx() }
 
@@ -69,7 +66,7 @@ fun FloatingCommandCenter(
             exit = fadeOut() + scaleOut(targetScale = 0.5f),
             modifier = Modifier.offset { IntOffset(x = 0, y = -(fabSizePx + overlapOffset).roundToInt()) }
         ) {
-            RadialMenu(
+            RadialMenuContent(
                 onSearchClick = {
                     isExpanded = false
                     onNavigateSearch()
@@ -85,8 +82,7 @@ fun FloatingCommandCenter(
                 onDownloadsClick = {
                     isExpanded = false
                     onNavigateDownloads()
-                },
-                modifier = Modifier.align(Alignment.BottomCenter)
+                }
             )
         }
 
@@ -135,7 +131,7 @@ fun FloatingCommandCenter(
                 },
             contentAlignment = Alignment.Center
         ) {
-            // Tactile inner circle
+            // Tactile inner circle with hamburger icon
             Canvas(modifier = Modifier.size(44.dp)) {
                 val innerRadius = size.minDimension / 2 - 2.dp.toPx()
                 drawCircle(
@@ -143,7 +139,6 @@ fun FloatingCommandCenter(
                     radius = innerRadius,
                     style = Stroke(width = 1.5.dp.toPx())
                 )
-                // Draw hamburger icon lines
                 val iconColor = TactileTheme.colors.fabForeground
                 val lineLength = 16.dp.toPx()
                 val strokeWidth = 2.dp.toPx()
@@ -163,37 +158,31 @@ fun FloatingCommandCenter(
  * Radial menu that appears when the FAB is expanded.
  */
 @Composable
-private fun RadialMenu(
+private fun RadialMenuContent(
     onSearchClick: () -> Unit,
     onGalleryClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    onDownloadsClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onDownloadsClick: () -> Unit
 ) {
-    val items = listOf(
-        RadialMenuItem("Search", androidx.compose.ui.graphics.vector.ImageVector.vectorResource) to onSearchClick,
-        // Simplified — using text buttons instead of vectors for reliability
-    )
-
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        RadialMenuButton(label = "Search", onClick = onSearchClick)
-        RadialMenuButton(label = "Gallery", onClick = onGalleryClick)
+        TactileMenuButton(label = "Search", onClick = onSearchClick)
+        TactileMenuButton(label = "Gallery", onClick = onGalleryClick)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            RadialMenuButton(label = "Downloads", onClick = onDownloadsClick, modifier = Modifier.weight(1f))
-            RadialMenuButton(label = "Settings", onClick = onSettingsClick, modifier = Modifier.weight(1f))
+            TactileMenuButton(label = "Downloads", onClick = onDownloadsClick, modifier = Modifier.weight(1f))
+            TactileMenuButton(label = "Settings", onClick = onSettingsClick, modifier = Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
 @Composable
-private fun RadialMenuButton(
+private fun TactileMenuButton(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier

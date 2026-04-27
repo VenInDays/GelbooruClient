@@ -2,13 +2,13 @@ package com.gelbooru.client.ui.components
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
@@ -17,11 +17,7 @@ import androidx.compose.ui.unit.dp
 
 val TactileCardShape = RoundedCornerShape(16.dp)
 val TactileButtonShape = RoundedCornerShape(12.dp)
-val TactileFabShape = androidx.compose.foundation.shape.CircleShape
 val TactileDialogShape = RoundedCornerShape(24.dp)
-val TactileBarShape = RoundedCornerShape(20.dp)
-val TactileChipShape = RoundedCornerShape(8.dp)
-val TactileSmallCardShape = RoundedCornerShape(12.dp)
 
 /**
  * A squircle (superellipse) shape for the floating elements.
@@ -29,15 +25,14 @@ val TactileSmallCardShape = RoundedCornerShape(12.dp)
 class SquircleShape(private val cornerRadius: Dp = 16.dp) : Shape {
     override fun createOutline(
         size: Size,
-        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-        density: androidx.compose.ui.unit.Density
-    ): androidx.compose.ui.graphics.Outline {
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
         val r = with(density) { cornerRadius.toPx() }
         val path = Path().apply {
             val w = size.width
             val h = size.height
-            // Approximate squircle with bezier curves
-            val k = r * 0.552284749831f // Circle approximation constant
+            val k = r * 0.552284749831f
 
             moveTo(r, 0f)
             lineTo(w - r, 0f)
@@ -47,7 +42,7 @@ class SquircleShape(private val cornerRadius: Dp = 16.dp) : Shape {
             cubicTo(0f, r - k, r - k, 0f, r, 0f)
             close()
         }
-        return androidx.compose.ui.graphics.Outline.Generic(path)
+        return Outline.Generic(path)
     }
 }
 
@@ -57,10 +52,10 @@ class SquircleShape(private val cornerRadius: Dp = 16.dp) : Shape {
 class PillShape : Shape {
     override fun createOutline(
         size: Size,
-        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-        density: androidx.compose.ui.unit.Density
-    ): androidx.compose.ui.graphics.Outline {
-        return androidx.compose.ui.graphics.Outline.Rounded(
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        return Outline.Rounded(
             androidx.compose.ui.geometry.RoundRect(
                 topLeft = CornerRadius(size.height / 2f),
                 topRight = CornerRadius(size.height / 2f),

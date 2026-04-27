@@ -1,13 +1,18 @@
 package com.gelbooru.client.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,13 +21,17 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.gelbooru.client.data.model.GelbooruPost
+import com.gelbooru.client.data.model.PostRating
 import com.gelbooru.client.ui.theme.TactileTheme
+import kotlinx.coroutines.delay
 
 /**
  * Responsive image grid for gallery display.
@@ -36,14 +45,31 @@ fun ImageGrid(
     modifier: Modifier = Modifier,
     columns: Int = 3
 ) {
+    val gridState = rememberLazyGridState()
+
+    // Trigger load more when reaching end
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()
+            lastVisibleItem != null && lastVisibleItem.index >= gridState.layoutInfo.totalItemsCount - 3
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value && !isLoading && posts.isNotEmpty()) {
+            onLoadMore()
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
+            state = gridState,
             contentPadding = PaddingValues(
                 start = 6.dp,
                 end = 6.dp,
-                top = 70.dp, // Space for floating toolbar
-                bottom = 90.dp // Space for floating command center
+                top = 70.dp,
+                bottom = 90.dp
             ),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -59,10 +85,8 @@ fun ImageGrid(
                 )
             }
 
-            // Load more trigger
-            item(span = { GridItemSpan(columns) }) {
-                LaunchedEffect(Unit) { onLoadMore() }
-                if (isLoading) {
+            if (isLoading) {
+                item(span = { GridItemSpan(columns) }) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -144,11 +168,10 @@ fun GalleryImageItem(
         }
 
         // Rating indicator
-        if (post.rating != com.gelbooru.client.data.model.PostRating.SAFE &&
-            post.rating != com.gelbooru.client.data.model.PostRating.UNKNOWN) {
+        if (post.rating != PostRating.SAFE && post.rating != PostRating.UNKNOWN) {
             val ratingColor = when (post.rating) {
-                com.gelbooru.client.data.model.PostRating.EXPLICIT -> Color(0xFFE53935)
-                com.gelbooru.client.data.model.PostRating.QUESTIONABLE -> Color(0xFFFFA726)
+                PostRating.EXPLICIT -> Color(0xFFE53935)
+                PostRating.QUESTIONABLE -> Color(0xFFFFA726)
                 else -> Color.Transparent
             }
             Box(
@@ -176,7 +199,7 @@ fun TactileLoadingIndicator(modifier: Modifier = Modifier) {
         while (true) {
             progress += 0.02f
             if (progress > 1f) progress = 0f
-            kotlinx.coroutines.delay(50)
+            delay(50)
         }
     }
 
@@ -190,7 +213,7 @@ fun TactileLoadingIndicator(modifier: Modifier = Modifier) {
         drawCircle(
             color = TactileTheme.colors.progressTrack,
             radius = radius,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+            style = Stroke(width = strokeWidth)
         )
 
         // Progress arc
@@ -199,16 +222,16 @@ fun TactileLoadingIndicator(modifier: Modifier = Modifier) {
             startAngle = -90f,
             sweepAngle = 360f * progress,
             useCenter = false,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(
+            style = Stroke(
                 width = strokeWidth,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round
+                cap = StrokeCap.Round
             )
         )
     }
 }
 
 /**
- * Full-screen image detail view with pinch-to-zoom support.
+ * Full-screen image detail view.
  */
 @Composable
 fun ImageDetailContent(
@@ -216,7 +239,7 @@ fun ImageDetailContent(
     postId: Int,
     tags: List<String>,
     score: Int,
-    rating: com.gelbooru.client.data.model.PostRating,
+    rating: PostRating,
     onTagClick: (String) -> Unit,
     onDownloadClick: () -> Unit,
     onBackClick: () -> Unit,
@@ -231,7 +254,7 @@ fun ImageDetailContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Top gradient overlay with back button
+        // Top gradient overlay with buttons
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -246,6 +269,7 @@ fun ImageDetailContent(
                 )
                 .align(Alignment.TopCenter)
         ) {
+            // Back button
             IconButton(
                 onClick = onBackClick,
                 modifier = Modifier
@@ -257,7 +281,6 @@ fun ImageDetailContent(
                         shape = RoundedCornerShape(12.dp)
                     )
             ) {
-                androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack
                 Text("<", color = TactileTheme.colors.textPrimary, style = MaterialTheme.typography.titleLarge)
             }
 
@@ -314,9 +337,10 @@ fun ImageDetailContent(
             // Tags as chips
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                tags.take(8).forEach { tag ->
+                tags.take(6).forEach { tag ->
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = Color.White.copy(alpha = 0.15f),
@@ -332,12 +356,11 @@ fun ImageDetailContent(
                         )
                     }
                 }
-                if (tags.size > 8) {
+                if (tags.size > 6) {
                     Text(
-                        text = "+${tags.size - 8}",
+                        text = "+${tags.size - 6}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier.align(Alignment.CenterVertically)
+                        color = Color.White.copy(alpha = 0.7f)
                     )
                 }
             }

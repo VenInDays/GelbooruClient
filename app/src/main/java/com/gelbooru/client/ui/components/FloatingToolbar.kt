@@ -1,12 +1,19 @@
 package com.gelbooru.client.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.*
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.foundation.BasicTextField
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,17 +21,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.detectTapGestures
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.gelbooru.client.ui.theme.TactileTheme
-import kotlin.math.roundToInt
 
 /**
  * Floating sidebar/toolbar positioned at the top-left.
  * Partially overlaps the main content area by 20%.
- * Features soft shadows, adaptive positioning, and boundary checks.
  */
 @Composable
 fun FloatingToolbar(
@@ -37,20 +46,13 @@ fun FloatingToolbar(
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val toolbarHeight = 56.dp
-    val toolbarHeightPx = with(density) { toolbarHeight.toPx() }
-    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
-
-    // The toolbar overlaps the search bar area by 20% of its height
-    val overlapOffset = (toolbarHeightPx * 0.20f).roundToInt()
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .offset { IntOffset(x = 0, y = 48.dp.roundToPx()) } // Below status bar
+            .offset { IntOffset(x = 0, y = 48.dp.roundToPx()) }
             .padding(horizontal = 12.dp)
     ) {
         Row(
@@ -108,9 +110,9 @@ fun FloatingToolbar(
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (searchQuery.isEmpty()) {
-                    androidx.compose.material3.Text(
+                    Text(
                         text = "Search tags...",
-                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = TactileTheme.colors.textTertiary
                     )
                 }
@@ -118,18 +120,14 @@ fun FloatingToolbar(
                 BasicTextField(
                     value = searchQuery,
                     onValueChange = onSearchQueryChange,
-                    textStyle = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
                         color = TactileTheme.colors.textPrimary
                     ),
                     modifier = Modifier.fillMaxSize(),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        imeAction = androidx.compose.foundation.text.ImeAction.Search
-                    ),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                        onSearch = { onSearchSubmit() }
-                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { onSearchSubmit() }),
                     singleLine = true,
-                    cursorBrush = androidx.compose.ui.graphics.SolidColor(TactileTheme.colors.accentPrimary)
+                    cursorBrush = SolidColor(TactileTheme.colors.accentPrimary)
                 )
             }
 
@@ -141,9 +139,9 @@ fun FloatingToolbar(
                 modifier = Modifier.size(44.dp),
                 tint = if (isNsfwEnabled) TactileTheme.colors.error else TactileTheme.colors.textTertiary
             ) {
-                androidx.compose.material3.Text(
+                Text(
                     text = "18",
-                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = if (isNsfwEnabled) TactileTheme.colors.error else TactileTheme.colors.textTertiary
                 )
             }
@@ -159,11 +157,11 @@ fun TactileIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    tint: androidx.compose.ui.graphics.Color = TactileTheme.colors.textPrimary,
+    tint: Color = TactileTheme.colors.textPrimary,
     content: @Composable () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
-    val bgColor by androidx.compose.animation.core.animateColorAsState(
+    val bgColor by animateColorAsState(
         targetValue = if (isPressed) TactileTheme.colors.surfacePressed
                       else TactileTheme.colors.surfaceElevated,
         label = "btn_bg"
@@ -175,7 +173,7 @@ fun TactileIconButton(
             .background(bgColor)
             .clickable(enabled = enabled) { onClick() }
             .pointerInput(Unit) {
-                androidx.compose.ui.input.pointer.detectTapGestures(
+                detectTapGestures(
                     onPress = { isPressed = true; tryAwaitRelease(); isPressed = false }
                 )
             },
@@ -202,34 +200,14 @@ fun TactileChip(
             .clickable { onClick() }
             .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
-        androidx.compose.material3.Text(
+        Text(
             text = text,
-            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall,
             color = TactileTheme.colors.textSecondary
         )
     }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-private fun BasicTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    textStyle: androidx.compose.ui.text.TextStyle,
-    modifier: Modifier = Modifier,
-    keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
-    keyboardActions: androidx.compose.foundation.text.KeyboardActions = androidx.compose.foundation.text.KeyboardActions.Default,
-    singleLine: Boolean = false,
-    cursorBrush: androidx.compose.ui.graphics.Brush = androidx.compose.ui.graphics.SolidColor(androidx.compose.ui.graphics.Color.Black)
-) {
-    androidx.compose.foundation.text.BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        textStyle = textStyle,
-        modifier = modifier,
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        singleLine = singleLine,
-        cursorBrush = cursorBrush
-    )
-}
+private val TactileSmallCardShape = RoundedCornerShape(12.dp)
+private val TactileBarShape = RoundedCornerShape(20.dp)
+private val TactileChipShape = RoundedCornerShape(8.dp)
