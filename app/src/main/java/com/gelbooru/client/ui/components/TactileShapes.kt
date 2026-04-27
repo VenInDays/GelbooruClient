@@ -58,10 +58,8 @@ class PillShape : Shape {
         val r = CornerRadius(size.height / 2f)
         return Outline.Rounded(
             androidx.compose.ui.geometry.RoundRect(
-                topLeft = r,
-                topRight = r,
-                bottomRight = r,
-                bottomLeft = r
+                0f, 0f, size.width, size.height, r
+            )
             )
         )
     }
