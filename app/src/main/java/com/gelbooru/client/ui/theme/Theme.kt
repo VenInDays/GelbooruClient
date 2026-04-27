@@ -5,6 +5,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
@@ -81,7 +82,7 @@ object TactileTheme {
         get() = LocalTactileColors.current
 }
 
-private val LocalTactileColors = staticCompositionLocalOf { LightColorPalette }
+private val LocalTactileColors = compositionLocalOf { LightColorPalette }
 
 @Composable
 fun GelbooruTheme(
