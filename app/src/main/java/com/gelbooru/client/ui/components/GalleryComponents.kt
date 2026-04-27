@@ -136,7 +136,7 @@ fun GalleryImageItem(
     Box(
         modifier = modifier
             .aspectRatio(1f)
-            .shadow(2.dp, RoundedCornerShape(6.dp), TactileTheme.colors.surfaceShadow)
+            .shadow(2.dp, RoundedCornerShape(6.dp), ambientColor = TactileTheme.colors.surfaceShadow, spotColor = TactileTheme.colors.surfaceShadow)
             .clip(RoundedCornerShape(6.dp))
             .background(TactileTheme.colors.surfacePressed)
             .clickable { onClick() }
@@ -204,11 +204,11 @@ fun TactileLoadingIndicator(modifier: Modifier = Modifier) {
         }
     }
 
+    val trackColor = TactileTheme.colors.progressTrack
+    val fillColor = TactileTheme.colors.progressFill
     Canvas(
         modifier = modifier.size(32.dp)
     ) {
-        val trackColor = TactileTheme.colors.progressTrack
-        val fillColor = TactileTheme.colors.progressFill
         val strokeWidth = 2.5.dp.toPx()
         val radius = (size.minDimension - strokeWidth) / 2
 
@@ -278,7 +278,7 @@ fun ImageDetailContent(
                 modifier = Modifier
                     .padding(12.dp)
                     .align(Alignment.TopStart)
-                    .shadow(4.dp, RoundedCornerShape(12.dp), TactileTheme.colors.surfaceShadow)
+                    .shadow(4.dp, RoundedCornerShape(12.dp), ambientColor = TactileTheme.colors.surfaceShadow, spotColor = TactileTheme.colors.surfaceShadow)
                     .background(
                         color = TactileTheme.colors.surfaceElevated.copy(alpha = 0.8f),
                         shape = RoundedCornerShape(12.dp)
@@ -293,7 +293,7 @@ fun ImageDetailContent(
                 modifier = Modifier
                     .padding(12.dp)
                     .align(Alignment.TopEnd)
-                    .shadow(4.dp, RoundedCornerShape(12.dp), TactileTheme.colors.surfaceShadow)
+                    .shadow(4.dp, RoundedCornerShape(12.dp), ambientColor = TactileTheme.colors.surfaceShadow, spotColor = TactileTheme.colors.surfaceShadow)
                     .background(
                         color = TactileTheme.colors.surfaceElevated.copy(alpha = 0.8f),
                         shape = RoundedCornerShape(12.dp)

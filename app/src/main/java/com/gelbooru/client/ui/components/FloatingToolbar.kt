@@ -118,7 +118,7 @@ fun FloatingToolbar(
                 modifier = Modifier
                     .weight(1f)
                     .height(40.dp)
-                    .shadow(2.dp, SmallCardShape, TactileTheme.colors.surfaceShadow)
+                    .shadow(2.dp, SmallCardShape, ambientColor = TactileTheme.colors.surfaceShadow, spotColor = TactileTheme.colors.surfaceShadow)
                     .clip(SmallCardShape)
                     .background(TactileTheme.colors.surfacePressed)
                     .padding(horizontal = 14.dp),
@@ -209,7 +209,7 @@ fun TactileChip(
 ) {
     Box(
         modifier = modifier
-            .shadow(2.dp, ChipShape, TactileTheme.colors.surfaceShadow)
+            .shadow(2.dp, ChipShape, ambientColor = TactileTheme.colors.surfaceShadow, spotColor = TactileTheme.colors.surfaceShadow)
             .clip(ChipShape)
             .background(TactileTheme.colors.surfaceElevated)
             .clickable { onClick() }
