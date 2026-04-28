@@ -60,7 +60,6 @@ class PillShape : Shape {
             androidx.compose.ui.geometry.RoundRect(
                 0f, 0f, size.width, size.height, r
             )
-            )
         )
     }
 }
