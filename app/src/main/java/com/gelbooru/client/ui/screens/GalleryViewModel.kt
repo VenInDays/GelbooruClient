@@ -149,5 +149,13 @@ class GalleryViewModel(application: Application) : AndroidViewModel(application)
         _uiState.update { it.copy(downloadStatus = null, downloadProgress = 0f) }
     }
 
+    fun toggleNsfw() {
+        viewModelScope.launch {
+            prefsRepository.preferences.first().let { prefs ->
+                prefsRepository.setNsfw(!prefs.showNsfw)
+            }
+        }
+    }
+
     private fun GalleryUiState.hasNextPage() = currentPage < totalPages
 }

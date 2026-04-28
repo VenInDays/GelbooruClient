@@ -24,7 +24,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            GelbooruTheme {
+            // Observe theme preference reactively
+            val preferences by preferencesRepository.preferences.collectAsState(
+                initial = com.gelbooru.client.data.model.UserPreferences()
+            )
+
+            GelbooruTheme(themeMode = preferences.themeMode) {
                 MainNavigation(preferencesRepository)
             }
         }

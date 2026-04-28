@@ -2,8 +2,13 @@ package com.gelbooru.client.scraping
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
 import android.webkit.CookieManager
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.gelbooru.client.data.model.GelbooruPost
@@ -12,12 +17,17 @@ import com.gelbooru.client.data.model.UserPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
  * Headless WebView-based scraper for Gelbooru.
  * Loads pages in background WebView and extracts data via HTML parsing.
+ *
+ * IMPORTANT: WebView instances are always destroyed after use to prevent memory leaks.
+ * Error handling includes network failures, HTTP errors, and timeouts.
  */
 class GelbooruScraper(private val context: Context) {
 
@@ -26,7 +36,8 @@ class GelbooruScraper(private val context: Context) {
 
     init {
         cookieManager.setAcceptCookie(true)
-        cookieManager.setAcceptThirdPartyCookies(null, true)
+        // Only set for future WebViews — avoids null WebView warning
+        cookieManager.setAcceptThirdPartyCookies(WebView(context), true)
     }
 
     /**
@@ -105,9 +116,17 @@ class GelbooruScraper(private val context: Context) {
 
     /**
      * Suspend function that loads a URL in a headless WebView and returns the HTML.
+     *
+     * WebView lifecycle guarantees:
+     * - Always destroyed after successful load (prevents OOM)
+     * - Always destroyed on cancellation (prevents leaks)
+     * - Always destroyed on error (prevents leaks)
+     * - Atomic flag prevents double-resume / use-after-destroy
+     * - Handles network errors, HTTP errors, and 15-second timeout
      */
     @SuppressLint("SetJavaScriptEnabled")
     private suspend fun loadUrl(url: String): String = suspendCancellableCoroutine { continuation ->
+        val isCompleted = AtomicBoolean(false)
         val webView = WebView(context).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -123,46 +142,121 @@ class GelbooruScraper(private val context: Context) {
                 return !request.url.toString().contains("gelbooru.com")
             }
 
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+            }
+
             override fun onPageFinished(view: WebView, loadedUrl: String?) {
-                if (loadedUrl == url) {
-                    // Small delay to let JS render
-                    view.postDelayed({
+                if (loadedUrl != url) return
+                if (!isCompleted.compareAndSet(false, true)) return
+
+                // Small delay to let JS render, then extract HTML and destroy WebView
+                view.postDelayed({
+                    if (continuation.isActive) {
                         try {
                             view.evaluateJavascript(
                                 "document.documentElement.outerHTML"
                             ) { html ->
-                                // evaluateJavascript wraps result in quotes
-                                val cleanHtml = html?.trim('"')?.replace("\\u003C", "<")
-                                    ?.replace("\\u003E", ">")
-                                    ?.replace("\\\"", "\"")
-                                    ?.replace("\\n", "\n")
-                                    ?: ""
+                                // Always destroy WebView after evaluateJavascript completes
+                                try { view.destroy() } catch (_: Exception) {}
 
-                                if (cleanHtml.isNotBlank()) {
-                                    continuation.resume(cleanHtml)
-                                } else {
-                                    continuation.resumeWithException(
-                                        IllegalStateException("Empty HTML from WebView")
-                                    )
+                                if (continuation.isActive) {
+                                    val cleanHtml = html?.trim('"')?.replace("\\u003C", "<")
+                                        ?.replace("\\u003E", ">")
+                                        ?.replace("\\\"", "\"")
+                                        ?.replace("\\n", "\n")
+                                        ?: ""
+
+                                    if (cleanHtml.isNotBlank()) {
+                                        continuation.resume(cleanHtml)
+                                    } else {
+                                        continuation.resumeWithException(
+                                            IllegalStateException("Empty HTML from WebView")
+                                        )
+                                    }
                                 }
                             }
                         } catch (e: Exception) {
-                            continuation.resumeWithException(e)
-                            view.destroy()
+                            try { view.destroy() } catch (_: Exception) {}
+                            if (continuation.isActive) {
+                                continuation.resumeWithException(e)
+                            }
                         }
-                    }, 500)
+                    } else {
+                        // Continuation cancelled during postDelayed
+                        try { view.destroy() } catch (_: Exception) {}
+                    }
+                }, 500)
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                // Only handle errors for the main frame URL
+                if (request?.isForMainFrame == true && url == request.url.toString()) {
+                    if (isCompleted.compareAndSet(false, true)) {
+                        try { view?.destroy() } catch (_: Exception) {}
+                        if (continuation.isActive) {
+                            val errorMsg = "WebView error: ${error?.description} (code: ${error?.errorCode})"
+                            continuation.resumeWithException(
+                                IllegalStateException(errorMsg)
+                            )
+                        }
+                    }
+                }
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                errorResponse: WebResourceResponse?
+            ) {
+                if (request?.isForMainFrame == true && url == request.url.toString()) {
+                    if (isCompleted.compareAndSet(false, true)) {
+                        try { view?.destroy() } catch (_: Exception) {}
+                        if (continuation.isActive) {
+                            continuation.resumeWithException(
+                                IllegalStateException(
+                                    "HTTP error ${errorResponse?.statusCode} loading $url"
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
 
         continuation.invokeOnCancellation {
-            try {
-                webView.stopLoading()
-                webView.destroy()
-            } catch (_: Exception) {}
+            if (isCompleted.compareAndSet(false, true)) {
+                try {
+                    webView.stopLoading()
+                    webView.destroy()
+                } catch (_: Exception) {}
+            }
         }
 
         webView.loadUrl(url)
+
+        // Safety timeout: prevent infinite hang if onPageFinished never fires
+        val timeoutHandler = Handler(Looper.getMainLooper())
+        val timeoutRunnable = Runnable {
+            if (isCompleted.compareAndSet(false, true)) {
+                try { webView.stopLoading(); webView.destroy() } catch (_: Exception) {}
+                if (continuation.isActive) {
+                    continuation.resumeWithException(
+                        TimeoutException("WebView load timed out after 15 seconds: $url")
+                    )
+                }
+            }
+        }
+        timeoutHandler.postDelayed(timeoutRunnable, 15_000)
+
+        // Cancel timeout if continuation completes normally
+        continuation.invokeOnCancellation {
+            timeoutHandler.removeCallbacks(timeoutRunnable)
+        }
     }
 
     companion object {

@@ -185,15 +185,17 @@ fun TactileIconButton(
         modifier = modifier
             .clip(SmallCardShape)
             .background(bgColor)
-            .clickable(enabled = enabled) { onClick() }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    }
-                )
+            .pointerInput(enabled) {
+                if (enabled) {
+                    detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            tryAwaitRelease()
+                            isPressed = false
+                        },
+                        onTap = { onClick() }
+                    )
+                }
             },
         contentAlignment = Alignment.Center
     ) {

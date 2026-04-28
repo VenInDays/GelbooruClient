@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gelbooru.client.data.model.DownloadStatus
 import com.gelbooru.client.data.model.GelbooruPost
@@ -34,11 +35,32 @@ fun GalleryScreen(
     var searchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    // Permission launcher
+    // Track notification permission state
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true // Permission not required below Android 13
+            }
+        )
+    }
+
+    // Permission launcher — properly requests POST_NOTIFICATIONS on Android 13+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        // Handle permission result if needed
+        hasNotificationPermission = isGranted
+    }
+
+    // Auto-request notification permission on first composition (Android 13+)
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     // Observe preference changes for NSFW
@@ -64,7 +86,7 @@ fun GalleryScreen(
                 }
             },
             onToggleNsfw = {
-                // Toggle NSFW in preferences
+                viewModel.toggleNsfw()
             },
             isNsfwEnabled = isNsfwEnabled,
             onMenuClick = onSettingsClick

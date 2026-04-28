@@ -90,13 +90,18 @@ class ImageDownloader(private val context: Context) {
                 .build()
 
             val response = client.newCall(request).execute()
-            if (!response.isSuccessful || response.body == null) return@withContext null
+            val body = response.body
+            if (!response.isSuccessful || body == null) {
+                response.close()
+                return@withContext null
+            }
 
             val extension = getExtensionFromUrl(imageUrl)
             val cacheFile = File(context.cacheDir, "img_${System.currentTimeMillis()}.$extension")
             cacheFile.outputStream().use { output ->
-                response.body!!.byteStream().copyTo(output)
+                body.byteStream().copyTo(output)
             }
+            response.close()
             cacheFile
         } catch (e: Exception) {
             null

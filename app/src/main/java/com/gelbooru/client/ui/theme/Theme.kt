@@ -1,13 +1,12 @@
 package com.gelbooru.client.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import com.gelbooru.client.data.model.ThemeMode
 
 /**
  * Tactile Minimalism theme.
@@ -86,9 +85,16 @@ private val LocalTactileColors = compositionLocalOf { LightColorPalette }
 
 @Composable
 fun GelbooruTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
+    // Resolve dark theme state from the user's chosen mode
+    val darkTheme = when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
     val colors = if (darkTheme) DarkColorPalette else LightColorPalette
 
     CompositionLocalProvider(LocalTactileColors provides colors) {
