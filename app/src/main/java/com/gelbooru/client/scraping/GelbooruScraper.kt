@@ -228,17 +228,6 @@ class GelbooruScraper(private val context: Context) {
             }
         }
 
-        continuation.invokeOnCancellation {
-            if (isCompleted.compareAndSet(false, true)) {
-                try {
-                    webView.stopLoading()
-                    webView.destroy()
-                } catch (_: Exception) {}
-            }
-        }
-
-        webView.loadUrl(url)
-
         // Safety timeout: prevent infinite hang if onPageFinished never fires
         val timeoutHandler = Handler(Looper.getMainLooper())
         val timeoutRunnable = Runnable {
@@ -253,9 +242,17 @@ class GelbooruScraper(private val context: Context) {
         }
         timeoutHandler.postDelayed(timeoutRunnable, 15_000)
 
-        // Cancel timeout if continuation completes normally
+        webView.loadUrl(url)
+
+        // Single cancellation handler: clean up both WebView and timeout
         continuation.invokeOnCancellation {
             timeoutHandler.removeCallbacks(timeoutRunnable)
+            if (isCompleted.compareAndSet(false, true)) {
+                try {
+                    webView.stopLoading()
+                    webView.destroy()
+                } catch (_: Exception) {}
+            }
         }
     }
 

@@ -69,6 +69,23 @@ fun FloatingCommandCenter(
             .padding(bottom = 16.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
+        // LAYER 1 (bottom): Scrim — behind everything, only dismisses menu on tap
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(TactileTheme.colors.scrim)
+                    .pointerInput(Unit) {
+                        detectTapGestures { isExpanded = false }
+                    }
+            )
+        }
+
+        // LAYER 2 (middle): Menu buttons — above scrim, tappable
         AnimatedVisibility(
             visible = isExpanded,
             enter = fadeIn() + scaleIn(initialScale = 0.5f),
@@ -92,23 +109,7 @@ fun FloatingCommandCenter(
             }
         }
 
-        AnimatedVisibility(
-            visible = isExpanded,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(TactileTheme.colors.scrim)
-                    .pointerInput(isExpanded) {
-                        if (isExpanded) {
-                            detectTapGestures { isExpanded = false }
-                        }
-                    }
-            )
-        }
-
+        // LAYER 3 (top): FAB button — always on top, always tappable
         Box(
             modifier = Modifier
                 .offset { IntOffset(x = 0, y = -overlapOffset) }
